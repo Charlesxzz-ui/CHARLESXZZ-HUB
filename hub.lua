@@ -251,14 +251,12 @@ local function checkRemoteStatus()
 	if success and result then
 		return result
 	else
-		-- Segurança caso o GitHub falhe temporariamente
 		return { LatestVersion = "1.0", Maintenance = false }
 	end
 end
 
 local remoteData = checkRemoteStatus()
 
--- Se não for você (Charlesxzz) e a versão online for diferente da atual, bloqueia!
 if not isCreator() and remoteData.LatestVersion ~= CURRENT_HUB_VERSION then
 	showUpdateRequiredScreen()
 	return
@@ -496,14 +494,25 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 4. BOTÃO FLUTUANTE CIRCULAR
+-- 4. BOTÃO FLUTUANTE COM IMAGEM DO PINTEREST
 -- ==========================================
-local floatBtn = Instance.new("TextButton")
+local floatBtn = Instance.new("ImageButton")
 floatBtn.Size = UDim2.new(0, 60, 0, 60)
 floatBtn.Position = UDim2.new(0, 30, 0, 200)
 floatBtn.BackgroundColor3 = HubConfig.Theme.PrimaryRed
-floatBtn.Text = "🎭"
-floatBtn.TextSize = 28
+
+-- Baixa a imagem do Pinterest direto pelo executor
+pcall(function()
+	if writefile and getcustomasset then
+		local imageUrl = "https://i.pinimg.com/1200x/3b/7d/51/3b7d51cc9ecf07cd34447bd916da1977.jpg" 
+		writefile("charles_pinterest_icon.png", game:HttpGet(imageUrl))
+		floatBtn.Image = getcustomasset("charles_pinterest_icon.png")
+	else
+		floatBtn.Image = "rbxassetid://6023426915" 
+	end
+end)
+
+floatBtn.ScaleType = Enum.ScaleType.Fit
 floatBtn.Visible = false
 floatBtn.ZIndex = 10
 floatBtn.Parent = screenGui
@@ -748,275 +757,245 @@ for i, tabName in ipairs(tabsList) do
 	local tabBtn = Instance.new("TextButton")
 	tabBtn.Size = UDim2.new(1, -16, 0, 35)
 	tabBtn.Position = UDim2.new(0, 8, 0, 8 + (i - 1) * 40)
-	tabBtn.BackgroundColor3 = (i == 1) and HubConfig.Theme.PrimaryRed or HubConfig.Theme.Black
+	tabBtn.BackgroundColor3 = (tabName == activeTabName) and HubConfig.Theme.PrimaryRed or HubConfig.Theme.DarkGray
 	tabBtn.Font = Enum.Font.GothamBold
-	tabBtn.Text = tabName .. (" ("..count..")")
+	tabBtn.Text = tabName .. " (" .. count .. ")"
 	tabBtn.TextColor3 = HubConfig.Theme.White
-	tabBtn.TextSize = 8
-	tabBtn.TextWrapped = true
-	tabBtn.ZIndex = 9
+	tabBtn.TextSize = 12
+	tabBtn.ZIndex = 10
 	tabBtn.Parent = sidebar
-	
+
+	local btnCorner = Instance.new("UICorner") btnCorner.CornerRadius = UDim.new(0, 6) btnCorner.Parent = tabBtn
 	sidebarButtons[tabName] = tabBtn
-	
-	local tabCorner = Instance.new("UICorner") tabCorner.CornerRadius = UDim.new(0, 6) tabCorner.Parent = tabBtn
-	
-	local activeIndicator = Instance.new("Frame")
-	activeIndicator.Size = UDim2.new(0, 4, 1, -10)
-	activeIndicator.Position = UDim2.new(0, 0, 0, 5)
-	activeIndicator.BackgroundColor3 = HubConfig.Theme.White
-	activeIndicator.BackgroundTransparency = (i == 1) and 0 or 1
-	activeIndicator.ZIndex = 10
-	activeIndicator.Parent = tabBtn
-	
-	local indCorner = Instance.new("UICorner") indCorner.CornerRadius = UDim.new(1, 0) indCorner.Parent = activeIndicator
-	
-	local cFrame = Instance.new("ScrollingFrame")
-	cFrame.Size = UDim2.new(1, 0, 1, 0)
-	cFrame.BackgroundTransparency = 1
-	cFrame.Visible = (i == 1)
-	cFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
-	cFrame.ScrollBarThickness = 4
-	cFrame.ZIndex = 9
-	cFrame.Parent = contentArea
-	contentFrames[tabName] = cFrame
-	
-	local watermark = Instance.new("TextLabel")
-	watermark.Size = UDim2.new(1, 0, 1, 0)
-	watermark.BackgroundTransparency = 1
-	watermark.Font = Enum.Font.GothamBold
-	watermark.Text = "🎭"
-	watermark.TextTransparency = 0.96
-	watermark.TextColor3 = HubConfig.Theme.PrimaryRed
-	watermark.TextSize = 130
-	watermark.ZIndex = 8
-	watermark.Parent = cFrame
-	
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, 0, 0, 40)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBold
-	label.Text = "Painel " .. tabName .. " - Charlesxzz Hub"
-	label.TextColor3 = HubConfig.Theme.White
-	label.TextSize = 14
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.ZIndex = 9
-	label.Parent = cFrame
+
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.Size = UDim2.new(1, 0, 1, 0)
+	scroll.BackgroundTransparency = 1
+	scroll.BorderSizePixel = 0
+	scroll.ScrollBarThickness = 4
+	scroll.Visible = (tabName == activeTabName)
+	scroll.ZIndex = 9
+	scroll.Parent = contentArea
+
+	local uiLayout = Instance.new("UIListLayout")
+	uiLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	uiLayout.Padding = UDim.new(0, 8)
+	uiLayout.Parent = scroll
+
+	uiLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		scroll.CanvasSize = UDim2.new(0, 0, 0, uiLayout.AbsoluteContentSize.Y + 10)
+	end)
+
+	contentFrames[tabName] = scroll
+
+	tabBtn.MouseButton1Click:Connect(function()
+		playUiSound("rbxassetid://6032214950", 0.3)
+		activeTabName = tabName
+		for name, btn in pairs(sidebarButtons) do
+			TweenService:Create(btn, TweenInfo.new(0.2), {
+				BackgroundColor3 = (name == activeTabName) and HubConfig.Theme.PrimaryRed or HubConfig.Theme.DarkGray
+			}):Play()
+		end
+		for name, frm in pairs(contentFrames) do
+			frm.Visible = (name == activeTabName)
+		end
+		if tabName == "⭐ FAVORITOS" then
+			refreshFavorites()
+		end
+	end)
 end
 
-local function renderScripts(targetTabName, scriptsArray)
-	local cFrame = contentFrames[targetTabName]
-	if not cFrame then return end
-	
-	for _, child in ipairs(cFrame:GetChildren()) do
-		if child.Name == "ScriptRow" then child:Destroy() end
+-- Função para popular os cards de scripts
+local function populateScripts(targetScroll, itemsList)
+	for _, child in ipairs(targetScroll:GetChildren()) do
+		if child:IsA("Frame") then child:Destroy() end
 	end
-	
-	for idx, scriptInfo in ipairs(scriptsArray) do
-		local scriptRow = Instance.new("Frame")
-		scriptRow.Name = "ScriptRow"
-		scriptRow.Size = UDim2.new(1, -10, 0, 45)
-		scriptRow.Position = UDim2.new(0, 0, 0, 45 + (idx - 1) * 52)
-		scriptRow.BackgroundColor3 = HubConfig.Theme.DarkGray
-		scriptRow.ZIndex = 9
-		scriptRow.Parent = cFrame
-		
-		local rowCorner = Instance.new("UICorner") rowCorner.CornerRadius = UDim.new(0, 6) rowCorner.Parent = scriptRow
-		
-		scriptRow.InputBegan:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-				TweenService:Create(scriptRow, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(38, 38, 38)}):Play()
-				if scriptInfo.Desc then
-					tooltip.Text = " " .. scriptInfo.Desc .. " "
-					tooltip.Size = UDim2.new(0, scriptInfo.Desc:len() * 6 + 20, 0, 26)
-					tooltip.Visible = true
-				end
-			end
-		end)
-		scriptRow.InputChanged:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement then
-				tooltip.Position = UDim2.new(0, input.Position.X + 15, 0, input.Position.Y - 25)
-			end
-		end)
-		scriptRow.InputEnded:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-				TweenService:Create(scriptRow, TweenInfo.new(0.2), {BackgroundColor3 = HubConfig.Theme.DarkGray}):Play()
-				tooltip.Visible = false
-			end
-		end)
-		
-		local scriptNameLabel = Instance.new("TextLabel")
-		scriptNameLabel.Size = UDim2.new(1, -170, 1, 0)
-		scriptNameLabel.Position = UDim2.new(0, 12, 0, 0)
-		scriptNameLabel.BackgroundTransparency = 1
-		scriptNameLabel.Font = Enum.Font.GothamBold
-		scriptNameLabel.Text = scriptInfo.Name
-		scriptNameLabel.TextColor3 = HubConfig.Theme.White
-		scriptNameLabel.TextSize = 12
-		scriptNameLabel.TextXAlignment = Enum.TextXAlignment.Left
-		scriptNameLabel.ZIndex = 9
-		scriptNameLabel.Parent = scriptRow
-		
+
+	for _, item in ipairs(itemsList) do
+		local card = Instance.new("Frame")
+		card.Size = UDim2.new(1, -10, 0, 65)
+		card.BackgroundColor3 = HubConfig.Theme.DarkGray
+		card.ZIndex = 10
+		card.Parent = targetScroll
+
+		local cCorner = Instance.new("UICorner") cCorner.CornerRadius = UDim.new(0, 8) cCorner.Parent = card
+		local cStroke = Instance.new("UIStroke") cStroke.Color = HubConfig.Theme.DarkRed cStroke.Thickness = 1 cStroke.Parent = card
+
+		local titleLbl = Instance.new("TextLabel")
+		titleLbl.Size = UDim2.new(1, -160, 0, 24)
+		titleLbl.Position = UDim2.new(0, 12, 0, 8)
+		titleLbl.BackgroundTransparency = 1
+		titleLbl.Font = Enum.Font.GothamBold
+		titleLbl.Text = item.Name
+		titleLbl.TextColor3 = HubConfig.Theme.White
+		titleLbl.TextSize = 13
+		titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+		titleLbl.ZIndex = 10
+		titleLbl.Parent = card
+
+		local descLbl = Instance.new("TextLabel")
+		descLbl.Size = UDim2.new(1, -160, 0, 25)
+		descLbl.Position = UDim2.new(0, 12, 0, 32)
+		descLbl.BackgroundTransparency = 1
+		descLbl.Font = Enum.Font.Gotham
+		descLbl.Text = item.Desc or "Sem descrição."
+		descLbl.TextColor3 = HubConfig.Theme.Gray
+		descLbl.TextSize = 11
+		descLbl.TextXAlignment = Enum.TextXAlignment.Left
+		descLbl.TextYAlignment = Enum.TextYAlignment.Top
+		descLbl.TextWrapped = true
+		descLbl.ZIndex = 10
+		descLbl.Parent = card
+
+		if item.Badge then
+			local badgeLbl = Instance.new("TextLabel")
+			badgeLbl.Size = UDim2.new(0, 60, 0, 20)
+			badgeLbl.Position = UDim2.new(1, -215, 0, 8)
+			badgeLbl.BackgroundColor3 = HubConfig.Theme.PrimaryRed
+			badgeLbl.Font = Enum.Font.GothamBold
+			badgeLbl.Text = item.Badge
+			badgeLbl.TextColor3 = HubConfig.Theme.White
+			badgeLbl.TextSize = 10
+			badgeLbl.ZIndex = 10
+			badgeLbl.Parent = card
+			local bCorner = Instance.new("UICorner") bCorner.CornerRadius = UDim.new(0, 4) bCorner.Parent = badgeLbl
+		end
+
+		local isFav = false
+		for _, fav in ipairs(favoriteItems) do
+			if fav.Name == item.Name then isFav = true break end
+		end
+
 		local favBtn = Instance.new("TextButton")
-		favBtn.Size = UDim2.new(0, 30, 0, 30)
-		favBtn.AnchorPoint = Vector2.new(1, 0.5)
-		favBtn.Position = UDim2.new(1, -60, 0.5, 0)
+		favBtn.Size = UDim2.new(0, 35, 0, 35)
+		favBtn.Position = UDim2.new(1, -145, 0, 15)
 		favBtn.BackgroundColor3 = HubConfig.Theme.Black
 		favBtn.Font = Enum.Font.GothamBold
-		favBtn.Text = table.find(favoriteItems, scriptInfo) and "⭐" or "☆"
-		favBtn.TextColor3 = HubConfig.Theme.Gold
-		favBtn.TextSize = 14
-		favBtn.ZIndex = 9
-		favBtn.Parent = scriptRow
-		local favCorner = Instance.new("UICorner") favCorner.CornerRadius = UDim.new(0, 6) favCorner.Parent = favBtn
-		
+		favBtn.Text = isFav and "★" or "☆"
+		favBtn.TextColor3 = isFav and HubConfig.Theme.Gold or HubConfig.Theme.Gray
+		favBtn.TextSize = 16
+		favBtn.ZIndex = 10
+		favBtn.Parent = card
+
+		local fCorner = Instance.new("UICorner") fCorner.CornerRadius = UDim.new(0, 6) fCorner.Parent = favBtn
+
 		favBtn.MouseButton1Click:Connect(function()
 			playUiSound("rbxassetid://6032214950", 0.3)
-			local pos = table.find(favoriteItems, scriptInfo)
-			if pos then
-				table.remove(favoriteItems, pos)
+			local foundIndex = nil
+			for idx, fav in ipairs(favoriteItems) do
+				if fav.Name == item.Name then foundIndex = idx break end
+			end
+			if foundIndex then
+				table.remove(favoriteItems, foundIndex)
 				favBtn.Text = "☆"
-				showToast("Removido dos favoritos", false)
+				favBtn.TextColor3 = HubConfig.Theme.Gray
+				showToast("Removido dos favoritos!", false)
 			else
-				table.insert(favoriteItems, scriptInfo)
-				favBtn.Text = "⭐"
+				table.insert(favoriteItems, item)
+				favBtn.Text = "★"
+				favBtn.TextColor3 = HubConfig.Theme.Gold
 				showToast("Adicionado aos favoritos!", true)
 			end
-			renderScripts("⭐ FAVORITOS", favoriteItems)
 			updateSidebarCounts()
+			if activeTabName == "⭐ FAVORITOS" then
+				refreshFavorites()
+			end
 		end)
-		
-		if scriptInfo.Badge then
-			local badgeLabel = Instance.new("TextLabel")
-			badgeLabel.Size = UDim2.new(0, 55, 0, 20)
-			badgeLabel.Position = UDim2.new(1, -185, 0.5, -10)
-			badgeLabel.BackgroundColor3 = HubConfig.Theme.DarkRed
-			badgeLabel.Font = Enum.Font.GothamBold
-			badgeLabel.Text = scriptInfo.Badge
-			badgeLabel.TextColor3 = HubConfig.Theme.White
-			badgeLabel.TextSize = 9
-			badgeLabel.ZIndex = 9
-			badgeLabel.Parent = scriptRow
-			local bCorner = Instance.new("UICorner") bCorner.CornerRadius = UDim.new(0, 4) bCorner.Parent = badgeLabel
-		end
-		
-		local playBtn = Instance.new("TextButton")
-		playBtn.Size = UDim2.new(0, 40, 0, 30)
-		playBtn.AnchorPoint = Vector2.new(1, 0.5)
-		playBtn.Position = UDim2.new(1, -8, 0.5, 0)
-		playBtn.BackgroundColor3 = HubConfig.Theme.PrimaryRed
-		playBtn.Font = Enum.Font.GothamBold
-		playBtn.Text = "▶"
-		playBtn.TextColor3 = HubConfig.Theme.White
-		playBtn.TextSize = 14
-		playBtn.ZIndex = 9
-		playBtn.Parent = scriptRow
-		local playCorner = Instance.new("UICorner") playCorner.CornerRadius = UDim.new(0, 6) playCorner.Parent = playBtn
-		
-		playBtn.MouseButton1Click:Connect(function()
+
+		local execBtn = Instance.new("TextButton")
+		execBtn.Size = UDim2.new(0, 95, 0, 35)
+		execBtn.Position = UDim2.new(1, -105, 0, 15)
+		execBtn.BackgroundColor3 = HubConfig.Theme.PrimaryRed
+		execBtn.Font = Enum.Font.GothamBold
+		execBtn.Text = "EXECUTAR ⚡"
+		execBtn.TextColor3 = HubConfig.Theme.White
+		execBtn.TextSize = 11
+		execBtn.ZIndex = 10
+		execBtn.Parent = card
+
+		local eCorner = Instance.new("UICorner") eCorner.CornerRadius = UDim.new(0, 6) eCorner.Parent = execBtn
+
+		execBtn.MouseButton1Click:Connect(function()
 			playUiSound("rbxassetid://6032214950", 0.4)
-			showToast("Executando: " .. scriptInfo.Name, true)
-			pcall(function() loadstring(game:HttpGet(scriptInfo.Url))() end)
+			showToast("Executando: " .. item.Name, true)
+			task.spawn(function()
+				local success, err = pcall(function()
+					loadstring(game:HttpGet(item.Url))()
+				end)
+				if not success then
+					warn("Erro ao executar script: " .. tostring(err))
+					showToast("Erro ao executar script!", false)
+				end
+			end)
 		end)
 	end
-	cFrame.CanvasSize = UDim2.new(0, 0, 0, 50 + (#scriptsArray * 52) + 20)
 end
 
 for _, tabName in ipairs(tabsList) do
 	if tabName ~= "⭐ FAVORITOS" then
-		local catScripts = {}
+		local listForTab = {}
 		for _, s in ipairs(scriptsDatabase) do
-			if s.Category == tabName then table.insert(catScripts, s) end
-		end
-		renderScripts(tabName, catScripts)
-	end
-end
-
-local function filterScripts()
-	local query = string.lower(searchBox.Text)
-	local currentFrame = contentFrames[activeTabName]
-	if not currentFrame then return end
-	
-	local visibleIndex = 0
-	for _, child in ipairs(currentFrame:GetChildren()) do
-		if child:IsA("Frame") and child.Name == "ScriptRow" then
-			local nameLbl = child:FindFirstChildOfClass("TextLabel")
-			if nameLbl then
-				local matches = (query == "" or string.find(string.lower(nameLbl.Text), query))
-				if matches then
-					child.Visible = true
-					child.Position = UDim2.new(0, 0, 0, 45 + (visibleIndex * 52))
-					visibleIndex = visibleIndex + 1
-				else
-					child.Visible = false
-				end
+			if s.Category == tabName then
+				table.insert(listForTab, s)
 			end
 		end
-	end
-	currentFrame.CanvasSize = UDim2.new(0, 0, 0, 50 + (visibleIndex * 52) + 20)
-end
-
-searchBox:GetPropertyChangedSignal("Text"):Connect(filterScripts)
-
-for i, tabName in ipairs(tabsList) do
-	local tabBtn = sidebar:GetChildren()[i]
-	if tabBtn and tabBtn:IsA("TextButton") then
-		tabBtn.MouseButton1Click:Connect(function()
-			playUiSound("rbxassetid://6032214950", 0.3)
-			activeTabName = tabName
-			searchBox.Text = ""
-			
-			if tabName == "⭐ FAVORITOS" then
-				renderScripts("⭐ FAVORITOS", favoriteItems)
-			end
-			
-			for name, frame in pairs(contentFrames) do
-				frame.Visible = (name == tabName)
-			end
-			for _, child in ipairs(sidebar:GetChildren()) do
-				if child:IsA("TextButton") then
-					child.BackgroundColor3 = (child.Text:find(tabName)) and HubConfig.Theme.PrimaryRed or HubConfig.Theme.Black
-					local indicator = child:FindFirstChildOfClass("Frame")
-					if indicator then
-						indicator.BackgroundTransparency = (child.Text:find(tabName)) and 0 or 1
-					end
-				end
-			end
-		end)
+		populateScripts(contentFrames[tabName], listForTab)
 	end
 end
+
+function refreshFavorites()
+	populateScripts(contentFrames["⭐ FAVORITOS"], favoriteItems)
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local query = searchBox.Text:lower()
+	if query == "" then
+		if activeTabName ~= "⭐ FAVORITOS" then
+			local listForTab = {}
+			for _, s in ipairs(scriptsDatabase) do
+				if s.Category == activeTabName then table.insert(listForTab, s) end
+			end
+			populateScripts(contentFrames[activeTabName], listForTab)
+		else
+			refreshFavorites()
+		end
+		return
+	end
+
+	local filtered = {}
+	for _, s in ipairs(scriptsDatabase) do
+		if string.find(s.Name:lower(), query) or string.find(s.Desc:lower(), query) then
+			table.insert(filtered, s)
+		end
+	end
+
+	if contentFrames[activeTabName] then
+		populateScripts(contentFrames[activeTabName], filtered)
+	end
+end)
 
 unlockBtn.MouseButton1Click:Connect(function()
-	playUiSound("rbxassetid://6032214950", 0.3)
-	local keyEntered = keyInput.Text
-	statusLabel.Text = "Verificando..."
-	
-	if HubConfig.ValidateKey(keyEntered) then
+	playUiSound("rbxassetid://6032214950", 0.4)
+	local entered = keyInput.Text
+	if HubConfig.ValidateKey(entered) or isCreator() then
 		statusLabel.TextColor3 = HubConfig.Theme.Green
-		statusLabel.Text = "Acesso autorizado!"
-		showToast("Bem-vindo ao Charlesxzz Hub!", true)
-		
-		task.spawn(function() sendDiscordNotification("SUCCESS_LOGIN") end)
-		
-		pcall(function()
-			bgMusic:Stop()
-			bgMusic:Destroy()
-		end)
-		
-		task.wait(1)
+		statusLabel.Text = "Key válida! Bem-vindo ao Hub."
+		showToast("Autenticado com sucesso!", true)
+
+		task.spawn(function() sendDiscordNotification("SUCCESS_UNLOCK") end)
+
+		task.wait(0.8)
 		keyFrame.Visible = false
 		floatBtn.Visible = true
 		mainPanel.Visible = true
 	else
 		statusLabel.TextColor3 = HubConfig.Theme.PrimaryRed
 		statusLabel.Text = "Key incorreta! Tente novamente."
-		showToast("Key incorreta!", false)
+		showToast("Key inválida!", false)
 	end
 end)
 
-local panelOpen = true
 floatBtn.MouseButton1Click:Connect(function()
-	panelOpen = not panelOpen
-	mainPanel.Visible = panelOpen
 	playUiSound("rbxassetid://6032214950", 0.3)
+	mainPanel.Visible = not mainPanel.Visible
 end)
